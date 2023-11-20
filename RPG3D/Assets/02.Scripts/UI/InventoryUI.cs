@@ -50,15 +50,36 @@ namespace RPG.UI
                         (out InventorySlot slot))
                     {
                         Select(slot.id);
+                        return;
                     }
                 }
                 else
                 {
-                    // inventory slot 클릭 -> 다른 슬롯이면 스왑 & 캔슬, 동일한 슬롯이면 캔슬.
+                    if (CustomInputModule.main.TryGetHovered<GraphicRaycaster>
+                        (out IEnumerable<GameObject> hovered))
+                    {
+                        // inventory slot 클릭 -> 다른 슬롯이면 스왑 & 캔슬, 동일한 슬롯이면 캔슬.
+                        // itemEquipped slot 클릭 -> 선택한 슬롯 아이템이 장비템면 장착시도 & 캔슬
 
-                    // itemEquipped slot 클릭 -> 선택한 슬롯 아이템이 장비템면 장착시도 & 캔슬
+                        foreach (var item in hovered)
+                        {
+                            if(item.TryGetComponent(out InventorySlot inventorySlot))
+                            {
+                                if (inventorySlot != _slots[_selectedID])
+                                    if(_presenter.swapCommand.CanExecute(_selectedID, inventorySlot.id))
+                                        _presenter.swapCommand.Execute(_selectedID, inventorySlot.id);
+                            }
+                           // else if (item.TryGetComponent(out itemEquippedSlot itemEquippedSlot))
+                           // {
+                           //   // 장비 작착 시도
+                           // }
+                        }
+                    }
+                    else
+                    {
 
-                    // UI 캐스팅 안됐는지 ? -> 정말 버릴건지에 대한 확인창 팝업 & 캔슬.
+                        // UI 캐스팅 안됐는지 ? -> 정말 버릴건지에 대한 확인창 팝업 & 캔슬.
+                    }
                 }
                 Deselect();               
             }

@@ -95,7 +95,7 @@ namespace RPG.DependencySource
         }
         public AddCommand addCommand;
 
-
+        
         public class RemoveCommand
         {
             public RemoveCommand(InventoryPresenter presenter) => _presenter = presenter;
@@ -179,7 +179,69 @@ namespace RPG.DependencySource
 
         public RemoveCommand removeCommand;
 
+        public class SwapCommand
+        {
+            public SwapCommand(InventoryPresenter presenter) => _presenter = presenter;
+            private InventoryPresenter _presenter;
 
+            public bool CanExecute(int slotID1, int slotID2)
+            {
+                return slotID1 >= 0 && slotID2 >= 0 &&
+                       slotID1 < _presenter.inventorySource.Count &&
+                       slotID2 < _presenter.inventorySource.Count &&
+                       slotID1 != slotID2;
+            }
+
+            public void Execute(int slotID1, int slotID2)
+            {
+                if (slotID1 == slotID2)
+                {
+                    Inventory inventory = Repository.instance.Get<Inventory>();
+                    inventory.RequestRead(slotID1, (slotID, slotData) =>
+                    {
+                        SlotData slotData1 = slotData;
+                        inventory.RequestRead(slotID2, (slotID, slotData) =>
+                        {
+                            SlotData slotData2 = slotData;
+                            int max = ItemDatum.Instance[slotData.itemID].numMax;
+                            int capacity = max - slotData2.itemNum;
+                            int remains = slotData1.itemNum - capacity;
+
+                            inventory.RequestWrite(slotID2, new SlotData(slotData.itemID, slotData2.itemNum + (remains > 0 ? capacity : slotData1.itemNum)), (slotID, slotData) =>
+                            {
+                                _presenter.inventorySource[slotID] = slotData;
+                                inventory.RequestWrite(slotID1, remains <= 0 ? SlotData.empty : new SlotData(slotData.itemID, remains), (slotID, slotData) =>
+                                {
+                                    _presenter.inventorySource[slotID] = slotData;
+                                });
+                            });
+                        });
+                    });
+                }
+                else
+                {
+                    Inventory inventory = Repository.instance.Get<Inventory>();
+                    inventory.RequestRead(slotID1, (slotID, slotData) =>
+                    {
+                        SlotData slotData1 = slotData;
+                        inventory.RequestRead(slotID2, (slotID, slotData) =>
+                        {
+                            SlotData slotData2 = slotData;
+
+                            inventory.RequestWrite(slotID1, slotData2, (slotID, slotData) =>
+                            {
+                                _presenter.inventorySource[slotID1] = slotData;
+                            });
+                            inventory.RequestWrite(slotID2, slotData1, (slotID, slotData) =>
+                            {
+                                _presenter.inventorySource[slotID2] = slotData;
+                            });
+                        });
+                    });
+                }
+            }
+        }
+        public SwapCommand swapCommand;
         public void Init()
         {
             Repository.instance.Get<Inventory>()
@@ -190,6 +252,7 @@ namespace RPG.DependencySource
                 });
             addCommand = new AddCommand(this);
             removeCommand = new RemoveCommand(this);
+            swapCommand = new SwapCommand(this);
         }
     }
 }
